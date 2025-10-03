@@ -1,38 +1,41 @@
 
 import streamlit as st
 import joblib
-from PIL import Image
+import cv2
 import numpy as np
+from PIL import Image
 
-# โหลดโมเดลที่บันทึกไว้
+# --- โหลดโมเดล SVM ---
 model = joblib.load("svm_image_classifier_model.pkl")
 
-# สร้าง UI ด้วย Streamlit
+# --- สร้าง UI ---
 st.title("Fruit Classifier")
-st.write("Upload an image of an apple or orange for classification.")
+st.write("อัปโหลดรูปภาพเพื่อทำนายว่าเป็น **แอปเปิ้ล** หรือ **ส้ม**")
 
-# อัปโหลดไฟล์รูปภาพ
+# dictionary แปลง class index เป็นชื่อ
+class_dict = {0: "แอปเปิ้ล", 1: "ส้ม"}
+
+# --- อัปโหลดรูป ---
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "png", "jpeg"])
 
-# กำหนด label สำหรับผลลัพธ์
-class_dict = {0: "Apple", 1: "Orange"}
-
 if uploaded_file is not None:
-    # เปิดรูปภาพ
-    image = Image.open(uploaded_file)
+    # อ่านและแปลงเป็น RGB
+    image = Image.open(uploaded_file).convert("RGB")
     st.image(image, caption='Uploaded Image', use_container_width=True)
 
-    # Resize เป็น 100x100 ตามที่โมเดลเทรนไว้
-    image = image.resize((100, 100))
+    # ปุ่มทำนาย
+    if st.button("Predict"):
+        # --- แปลงรูปเป็น array ตามตอน train ---
+        image_array = np.array(image)
+        # ถ้า train ใช้ OpenCV default BGR ให้ convert
+        image_array = cv2.cvtColor(image_array, cv2.COLOR_RGB2BGR)
+        # Resize เป็น (100, 100) ตามตอน train
+        image_resized = cv2.resize(image_array, (100, 100))
+        # Flatten เป็น feature vector
+        image_flatten = image_resized.flatten().reshape(1, -1)
 
-    # แปลงรูปเป็น numpy array
-    image_array = np.array(image)
+        # --- ทำนาย ---
+        prediction = model.predict(image_flatten)[0]
+        prediction_name = class_dict[prediction]
 
-    # Flatten เป็น 1D array และ reshape ให้โมเดลรับได้
-    image_array = image_array.flatten().reshape(1, -1)
-
-    # ทำนาย
-    prediction = model.predict(image_array)[0]
-    prediction_name = class_dict[prediction]
-
-    st.write(f"Prediction: **{prediction_name}**")
+        st.write(f"ผลการทำนาย: **{prediction_name}**")
